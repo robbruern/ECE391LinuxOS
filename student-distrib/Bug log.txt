@@ -1,0 +1,174 @@
+Bug Log by Ricky Machado, Robbie Ernst, Alex Krysl, and Sam Atac
+
+Template:
+- What was wrong?
+- How many lines?
+- How did we fix it?
+- How long did it take to solve?
+
+Chekpoint 1:
+1) When we wrote into cr0 for paging, the OS would reset
+- in paging.S we would lose current bounds of the function
+- 2 lines.
+- fixed it by putting dollar signs on my hex values in assembly
+- solved in about 2 hours
+
+2)Paging was enabled but we could not type to screen
+- proplem with our paging init function
+- 4 lines. 
+- fixed it by writing the correct value to the video memory virtual address
+- took about an hour to solve
+
+3) Our interrupts would stop working after a single interrupt
+- Problem with the masking of our eoi func and use of iret
+- fixed by sending eoi to both master and slave, and creating a asm wrapper for our interrupt handlers
+- 7-10 depending on interrupt
+- Took 3-4 hours to solve
+
+4) Page fault interrupt not calling
+- Problem with the masking of our eoi func and use of iret
+- 20 lines.
+- Paging was not yet implemented
+- Took 1 hour to solve
+
+5) Loading GDT failed/caused a bootloop.
+- We had used the wrong pointer, and we had setup the 48-bit register in the wrong direction
+- 6 lines.
+- We had added a new section to x86_desc.S that set up the 48-bit gtdr properly.
+- Took 1 hour to solve.
+
+Checkpoint 2 - 6 errors
+6) read directory worked incorrectly
+Problem was that we used one single read directory call to print out all directory entries
+About 20 lines
+Fixed it by only putting one directory entry in the read buffer
+Solved in about an hour
+
+7) rtc was written to incorrectly
+Rtc was written to by thinking you had to pass in a number from 1 - 15
+About a 25 line fix
+Fixed by realizing that the buffer passed in a number and using that instead
+Solved in about 30 mins
+
+
+8) filesystem non-sequential data block reading
+We initially assumed that the data blocks were sequential and were reading them as such
+~ 20 lines
+We then read the blocks more carefully and jumped to the necessary blocks
+
+9) terminal looped on same line 
+While writing in the terminal buffer, we would overwrite text on the screen
+20 lines
+We made the buffer print to the new line instead of going over text
+30 mins
+
+10) read data didn’t read all of a big file
+When we would read a file that had multiple data blocks, we wouldn’t be able to get the whole file
+About a 15 line fix
+We didn’t realize that the data blocks don’t need to be next to each other, and we used the information passed to us in the file’s respective inode
+Took about an hour and a half
+
+11) read too much of a file
+While reading a file, sometimes we would read more than the limit of the file
+Took around 10 lines to fix the function 
+To remedy the issue, we needed to calculate the max amount of reads we can do without spilling out of the file so we don’t read a file we are trying not to access
+Took about 2 hours to figure out
+
+Checkpoint 3 
+
+12) execute page fault immediately
+We were unaware that syscalls were necessary to prevent page faults
+~300 lines
+A couple of days
+
+
+13) execute general protection
+Some interrupts did not have the right permissions, the ss register was not set to the correct protection level, and this would sometimes cause general protection faults, as well as random page faults.
+15-20lines
+By properly implementing the context switch, we correctly adjusted the tss into the correct space and privilege level to avoid this error
+2-3 hours
+
+14) iret went to the wrong place
+Stack frame was not set up correctly before the iret, so we were returning to the wrong place in memory, and in most cases page faulting.
+Needed 1-2 lines of assembly to push the %edx, %ecx, and %ebx on the stack, and use a jump table.
+4-5 hours
+
+15) Overwrote our stacks in execute
+Part of the issue why our user programs would not execute
+We were not assigning the Esp0 within the kernel space, instead it was the program memory space
+2 lines
+4 hours to fix
+
+16) pcb loaded incorrectly
+When we loaded the pcb in any of the open functions, the data wouldn’t save after the open call
+The fix took less than 5 lines to fix
+We were passing a pointer to a stack variable, meaning the pointer pointer to junk. Fixed by passing by value rather than pointer
+30 mins to fix
+
+17) registers were getting clobbered in do call
+Due to some inline assembly our do call was non functional, as it would not pass the proper registers
+~13 lines
+3 hours
+We switched to an assembly wrapper, instead of inline pushes
+
+
+18) able to run executables without full string not matching
+While trying to execute a read, we were not doing a strlength check, so we were able to load “cat” for example, by just pressing “c”.
+The fix was 2 lines
+We needed to do a strlength comparison, between the passed argument and our local file names
+Took around 20 minutes to fix 
+
+19) ls not able to run
+While trying to run ls in the shell, we would cause an exception 
+The fix was around 10 lines
+The problem was that read_data_by_name was supposed to return the length of the string’s name and we only returned 0 every time
+Took about 2 hours to realize what was going on
+
+Checkpoint 4 
+
+20) vidmap not returning correct variable
+-while returning for vidmap, the wrong variable was passed back
+-10 lines
+- we figured out we are supposed to write into the memory of the double pointr passed
+
+
+21) rtc arguments passed in wrong order
+Noticed during demo, however, the arguments passed into the rtc were passed in the wrong order, with the buffer being the size, and the size being the passed rate
+1 line
+Took like 10 minutes
+We just what variable did what in the rtc_write function
+
+
+Checkpoint 5 
+
+22) stack was getting messed up when context switching
+We were saving parameters in the wrong order, the stack was being overwritten in the incorrect places. Lack of interrupt masks in certain places would result in race conditions.
+The fix was several lines in several different places
+The problem was that our stack frame was being overwritten or corrupted before a context switch
+These problems lasted the entirety of multiple days ~3days
+
+23) running two hello’s at the same time would not work
+We were not actually switching contexts, so if we started one process and hit enter to execute in a different terminal, the program would not pause. In this case, we would start “hello” on one terminal, move to another terminal and then were able to type a name and the program would continue. 
+10-20 lines
+10-20 hours
+We very much so struggled getting the context switch to work as we intended. This bug was more of a symptom than the root of the problem, and it caused us a ridiculous amount of time.
+
+24) Running 5 shells in one terminal and 1 in another broke the OS
+Our maximum process counters was not properly keeping track of how many processes were ru
+
+25) Had a general protection fault while running fish randomly
+This problem has not been solved
+?  Lines
+40 or so hours and counting
+
+26) Video memory worked correctly for two terminals, but not three
+We were artificially restricting the scheduling to two processes
+1 line
+1 hour
+
+27) rtc was being virtualized incorrectly
+We accidentally masked all rtc interrupts by trying to virtualize the rtc. This was an honest mistake after a long break, cut us some slack.
+The fix involved a few lines and new variables to be indexed by the current process
+2-3 hours
+
+
